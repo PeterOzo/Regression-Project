@@ -1,0 +1,597 @@
+---
+title: "Data612 Summer Project Presentation"
+author: "PETER CHIKA OZO-OGUEJI"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    toc_float: true
+    code_folding: hide
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+library(tidyverse)
+library(GGally)  # For pair plots
+library(car)     # For VIF
+library(lmtest)  # For Durbin-Watson test
+library(corrplot)
+library(ggcorrplot)
+library(gridExtra)
+library(olsrr)
+library(bslib)
+library(patchwork)
+library(DT)
+library(plotly)
+```
+
+## Analyzing Factors Influencing Heart Disease Severity using Multiple Linear Regression {#Top}
+***
+
+<center>
+  <img src="heart_image.jpg" alt="Data Science Visualization" width="500" />
+<div style="text-align: center;">
+
+  <a href="https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction" target="_blank">Visit NIH Data Science Website</a>
+</div>
+
+***
+
+## Project Overview: {.tabset} 
+### This project aims to analyze the factors influencing the severity of heart disease using multiple linear regression. The goal is to understand how various health indicators contribute to the severity of heart disease, measured on a continuous scale.
+***
+
+# {-}
+
+***
+# Dataset Selection {.tabset}
+Source: Kaggle - Heart Failure Prediction Dataset
+
+Description: This dataset contains 12 variables including age, sex, chest pain type, resting blood pressure, serum cholesterol, fasting blood sugar, resting electrocardiographic results, maximum heart rate achieved, exercise-induced angina, oldpeak (ST depression induced by exercise relative to rest), slope of the peak exercise ST segment, and the number of major vessels colored by fluoroscopy. The target variable is the presence or absence of heart disease. This dataset aligns with the project guideline's requirements of having at least 10 variables and 100 observational rows, with both quantitative and categorical variables.
+
+
+Datasets Name: hearts
+
+Website to Download the Data:
+Kaggle - Heart Failure Prediction Dataset
+URL : https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction
+
+## Datasets Description
+
+- Cardiovascular diseases (CVDs) are the number 1 cause of death globally, taking an estimated 17.9 million lives each year, which accounts for 31% of all deaths worldwide. Four out of 5CVD deaths are due to heart attacks and strokes, and one-third of these deaths occur prematurely in people under 70 years of age. Heart failure is a common event caused by CVDs and this dataset contains 11 features that can be used to predict a possible heart disease.
+
+- People with cardiovascular disease or who are at high cardiovascular risk (due to the presence of one or more risk factors such as hypertension, diabetes, hyperlipidaemia or already established disease) need early detection and management wherein a machine learning model can be of great help.
+
+## Attribute Information
+- Age: age of the patient [years]
+- Sex: sex of the patient [M: Male, F: Female]
+- ChestPainType: chest pain type [TA: Typical Angina, ATA: Atypical Angina, NAP: Non-Anginal Pain, ASY: Asymptomatic]
+- RestingBP: resting blood pressure [mm Hg]
+- Cholesterol: serum cholesterol [mm/dl]
+- FastingBS: fasting blood sugar [1: if FastingBS > 120 mg/dl, 0: otherwise]
+- RestingECG: resting electrocardiogram results [Normal: Normal, ST: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of > 0.05 mV), LVH: showing probable or definite left ventricular hypertrophy by Estes' criteria]
+- MaxHR: maximum heart rate achieved [Numeric value between 60 and 202]
+- ExerciseAngina: exercise-induced angina [Y: Yes, N: No]
+- Oldpeak: oldpeak = ST [Numeric value measured in depression]
+- ST_Slope: the slope of the peak exercise ST segment [Up: upsloping, Flat: flat, Down: downsloping]
+- HeartDisease: output class [1: heart disease, 0: Normal]
+***
+
+# {-}
+
+***
+# Research Questions {.tabset}
+1.	Which health indicators are the most significant predictors of heart disease severity?
+2.	How do categorical variables such as sex and chest pain type influence the prediction of heart disease?
+3.	What is the relationship between quantitative variables like cholesterol levels, resting blood pressure, and maximum heart rate with the severity of heart disease?
+
+
+
+## Expected Outcomes
+The project aims to identify key predictors of heart disease severity and provide a comprehensive analysis that can aid in early detection and better management of cardiovascular diseases. By leveraging statistical and machine learning techniques, the findings will contribute to the understanding of heart disease risk factors and support the development of preventive measures
+
+***
+
+# {-}
+
+***
+# Data Import and Conversion {.tabset}
+## Purpose
+
+Data Import: To load the dataset into R for analysis.
+Check for Missing Values: To ensure data completeness and integrity.
+Data Conversion: To ensure categorical variables are treated appropriately in the analysis.
+
+```{r}
+# Import the dataset
+
+
+heart_data <- read_csv("C:/Users/auuser/Desktop/Data612 Proj Proposal/heart.csv", show_col_types = FALSE)
+
+head(heart_data)
+summary(heart_data)
+```
+
+ Data Tibble.
+
+```{r}
+is_tibble(heart_data)
+```
+
+Tidy Data
+
+```{r}
+sum(is.na(heart_data))
+```
+
+To identify and characterize the dataset thoroughly, we can utilize several R functions that provide detailed insights into the structure, summary statistics, distribution, and relationships between the variables
+
+## Understanding the Data Structure 
+
+```{r}
+# Check the structure of the data
+str(heart_data)
+
+### Explanation: The str() function gives a compact overview of the dataset, showing the types of each variable and the first few entries, which is essential for understanding the data types and structure.
+```
+## Data Preprocessing
+
+### Convert categorical variables to dummy variables
+
+```{r}
+# Convert categorical variables to dummy variables
+
+heart_data2 <- heart_data %>%
+  mutate(Sex = factor(heart_data$Sex),
+         ChestPainType = factor(heart_data$ChestPainType),
+         FastingBS = factor(heart_data$FastingBS),
+         RestingECG = factor(heart_data$RestingECG),
+         ExerciseAngina = factor(heart_data$ExerciseAngina),
+         ST_Slope = factor(heart_data$ST_Slope),
+         HeartDisease = factor(heart_data$HeartDisease))
+
+# Use model.matrix() to create dummy variables
+# Exclude the intercept to get full set of dummy variables
+dummy_variables <- model.matrix(~ Sex + ChestPainType + FastingBS + RestingECG + ExerciseAngina + ST_Slope + HeartDisease - 1, data = heart_data2)
+
+# Convert to a data frame for easier viewing
+dummy_variables_df <- as.tibble(dummy_variables)
+
+# View the first few rows of the dummy variables
+dummy_variables_df
+
+
+### How model.matrix() Works
+### Intercept Handling:
+
+### By default, model.matrix() includes an intercept term (a column of ones) unless explicitly removed by using -1 in the formula.
+### The intercept represents the baseline level of the model and is crucial for calculating ### the baseline mean in linear models.
+### Dummy Variables for Factors:
+
+### Categorical variables (factors) are converted into a set of binary (0/1) columns, one for each level of the factor, minus one level to avoid the dummy variable trap (perfect multicollinearity).
+### This exclusion of one level is referred to as the reference level, and all comparisons are made relative to this level.
+### Custom Contrasts:
+
+### Users can specify custom contrasts for factors using the contrasts() function, allowing for alternative encoding schemes such as Helmert or sum contrasts.
+### Interaction Terms:
+
+### model.matrix() can handle interaction terms specified in the formula, creating columns that represent the interaction between two or more variables.
+```
+***
+# {-}
+***
+# Categorical and Quantitative Variable Plots(EDA) {.tabset}
+
+ To generate insightful plots using ggplot2, we will create visualizations that highlight relationships and trends between categorical and quantitative variables in the heart disease dataset. These plots will include histograms, boxplots, and scatter plots with trend lines, which can help us uncover patterns and insights in the data.
+
+
+ Visualization Goals
+
+ Discription
+ Distribution of Age by Heart Disease Status: Use histograms to show how age is distributed among those with and without heart disease.
+Boxplots of Cholesterol by Chest Pain Type: Compare cholesterol levels across different types of chest pain.
+Scatter Plot of Max Heart Rate vs. Age: Examine the relationship between age and maximum heart rate, differentiated by heart disease status.
+Bar Plot of Heart Disease by Sex: Show the proportion of heart disease across genders.
+
+
+
+## Distribution of Age by Heart Disease Status {.tabset}
+
+```{r}
+library(ggplot2)
+
+# Histogram of Age by Heart Disease Status
+p1 <- ggplot(heart_data2, aes(x = Age, fill = HeartDisease)) +
+  geom_histogram(binwidth = 5, position = "dodge", alpha = 0.7) +
+  labs(title = "Age Distribution by Heart Disease Status", 
+       x = "Age", 
+       y = "Count") +
+  scale_fill_manual(values = c("darkblue", "purple"))
+
+ggplotly(p1)
+
+#Explanation:
+# The histogram shows the age distribution for patients with and without heart disease, using fill to differentiate the groups.
+# binwidth = 5 groups ages into 5-year intervals for clarity.
+# position = "dodge" separates the bars for better comparison.
+
+# Boxplots of Cholesterol by Chest Pain Type {.tabset}
+
+# Boxplot of Cholesterol by Chest Pain Type
+p2 <- ggplot(heart_data2, aes(x = ChestPainType, y = Cholesterol, fill = ChestPainType)) +
+  geom_boxplot() +
+  labs(title = "Cholesterol Levels by Chest Pain Type", 
+       x = "Chest Pain Type", 
+       y = "Cholesterol (mg/dl)") +
+  scale_fill_brewer(palette = "Pastel1") +
+  theme(legend.position = "none")
+
+ggplotly(p2)
+
+### Explanation:
+
+### Boxplots show the distribution of cholesterol levels across different types of chest pain.
+### This visualization helps identify any differences in cholesterol levels among the pain types.
+
+## Scatter Plot of Max Heart Rate vs. Age 
+
+
+# Scatter Plot of Max Heart Rate vs. Age, colored by Heart Disease Status
+p3 <- ggplot(heart_data2, aes(x = Age, y = MaxHR, color = HeartDisease)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "black") +
+  labs(title = "Max Heart Rate vs. Age by Heart Disease Status", 
+       x = "Age", 
+       y = "Max Heart Rate") +
+  scale_color_manual(values = c("red", "purple"))
+
+ggplotly(p3)
+
+### Explanation:
+
+### A scatter plot shows the relationship between age and maximum heart rate, with a linear trend line (geom_smooth).
+### Points are colored by heart disease status, which can help identify trends and patterns between the variables.
+
+## Bar Plot of Heart Disease by Sex 
+
+
+# Bar Plot of Heart Disease by Sex
+p4 <- ggplot(heart_data2, aes(x = Sex, fill = HeartDisease)) +
+  geom_bar(position = "fill") +
+  labs(title = "Proportion of Heart Disease by Sex", 
+       x = "Sex", 
+       y = "Proportion") +
+  scale_fill_manual(values = c("#FF9999", "purple")) +
+  scale_y_continuous(labels = scales::percent)
+
+ggplotly(p4)
+
+### Explanation:
+
+### A bar plot shows the proportion of heart disease within each gender.
+### position = "fill" normalizes each bar to 100%, allowing us to compare proportions.
+
+```
+
+## Description and Interpretation {.tabset}
+
+ Age Distribution by Heart Disease Status
+
+ Description:
+This histogram shows the distribution of ages for individuals with and without heart disease. The blue bars represent individuals without heart disease (HeartDisease = 0), and the purple bars represent individuals with heart disease (HeartDisease = 1).
+
+ Interpretation:
+
+Individuals with heart disease are generally older, with a noticeable increase in heart disease prevalence starting from the age of 40.
+The peak prevalence for individuals with heart disease is around 50 to 60 years.
+There are fewer young individuals (under 40) with heart disease, indicating age as a significant factor in heart disease prevalence.
+
+ Cholesterol Levels by Chest Pain Type
+
+ Description:
+This box plot shows the distribution of cholesterol levels for different chest pain types (ASY: Asymptomatic, ATA: Atypical Angina, NAP: Non-Anginal Pain, TA: Typical Angina).
+
+ Interpretation:
+
+Individuals with asymptomatic (ASY) chest pain have a wider range of cholesterol levels, with many outliers indicating higher cholesterol.
+Those with typical angina (TA) and non-anginal pain (NAP) tend to have higher cholesterol levels compared to other chest pain types.
+Atypical angina (ATA) shows a more consistent range of cholesterol levels with fewer extreme values.
+ Max Heart Rate vs. Age by Heart Disease Status
+
+ Description:
+This scatter plot shows the relationship between maximum heart rate and age, with different colors representing heart disease status (Red: No heart disease, Purple: Heart disease).
+
+ Interpretation:
+
+There is a general decline in maximum heart rate with increasing age for both groups.
+Individuals without heart disease (red) tend to have higher maximum heart rates compared to those with heart disease (purple).
+This negative correlation suggests that as individuals age, their maximum heart rate decreases, and those with lower maximum heart rates are more likely to have heart disease.
+
+Proportion of Heart Disease by Sex
+
+Description:
+This bar plot shows the proportion of heart disease prevalence by sex. The pink bars represent individuals without heart disease (HeartDisease = 0), and the purple bars represent individuals with heart disease (HeartDisease = 1).
+
+Interpretation:
+
+Males (M) have a higher proportion of heart disease compared to females (F).
+The majority of females do not have heart disease, while a significant proportion of males do.
+This indicates that sex is an important factor, with males being more susceptible to heart disease.
+Overall Interpretation
+These visualizations provide important insights into the factors associated with heart disease:
+
+Age: Older age groups have higher heart disease prevalence.
+Cholesterol: Higher cholesterol levels are more common in individuals with certain types of chest pain.
+Max Heart Rate: Lower maximum heart rates are associated with higher heart disease prevalence, especially in older individuals.
+Sex: Males are at a higher risk of developing heart disease compared to females.
+
+***
+
+# {-}
+***
+
+## Interactive Table 
+
+```{r Interactive Table}
+datatable(heart_data2, options = list(pageLength = 10, autoWidth = TRUE))
+
+```
+***
+# {-}
+***
+# Interpretation of the Quantitative and Qualitative Plots {.tabset}
+## The visualizations reveal that older age groups (especially those over 40) have a higher prevalence of heart disease, with peak cases around 50-60 years. Cholesterol levels vary significantly with chest pain types, with asymptomatic individuals showing a wide range and higher levels, while typical angina and non-anginal pain are also associated with higher cholesterol. A declining maximum heart rate with age is observed, and those with heart disease generally have lower maximum heart rates. Additionally, males are at a higher risk of heart disease compared to females, highlighting the importance of age, cholesterol, maximum heart rate, and sex as critical factors in heart disease prevalence..
+***
+# {-}
+
+***
+# Correlation {.tabset}
+
+To Visualize the Correlation Matrix, we Use a heatmap to visualize the correlations, highlighting both the strength and direction of relationships between variables.
+
+
+## Visualize the correlation matrix using corrplot {.tabset}
+
+```{r}
+# Compute correlation matrix for numeric variables
+numeric_vars <- heart_data %>%
+  select_if(is.numeric) # Select only numeric columns
+
+correlation_matrix <- cor(numeric_vars, use = "complete.obs") # Compute correlations
+
+
+corrplot(correlation_matrix, method = "color", type = "upper", 
+         order = "hclust", tl.col = "black", tl.srt = 45, 
+         addCoef.col = "black", number.cex = 0.7,
+         col = colorRampPalette(c("red", "white", "blue"))(200))
+
+# Explanation
+#Select Numeric Variables: We use select_if(is.numeric) to choose only the numeric columns from the dataset for correlation analysis.
+
+#Compute Correlations: The cor() function calculates the pairwise correlation coefficients for the selected numeric variables. The use = "complete.obs" argument ensures that only complete observations (rows without missing values) are used in the calculation.
+
+#Visualize with corrplot:
+#method = "color": Colors the correlation matrix cells based on correlation strength and direction.
+#type = "upper": Displays only the upper triangle of the matrix to avoid redundancy.
+#order = "hclust": Orders the matrix based on hierarchical clustering, grouping strongly #correlated variables together.
+#tl.col = "black" and tl.srt = 45: Set the text label color and rotation angle for better readability.
+#addCoef.col = "black": Adds the correlation coefficients as text on the plot.
+#col = colorRampPalette(c("red", "white", "blue"))(200): Defines the color gradient, with red for negative correlations, blue for positive correlations, and white for zero correlation.
+
+```
+
+## Interpretation of Correlation Matrix {.tabset}
+This correlation matrix visualizes the relationships between different variables in the dataset. The color scale on the right indicates the strength and direction of the correlations, with values ranging from -1 to 1. Positive correlations are shown in shades of blue, while negative correlations are in shades of red.
+
+Key Observations:
+Cholesterol:
+
+Shows a weak positive correlation with MaxHR (0.24).
+Has a weak negative correlation with HeartDisease (-0.23), suggesting that higher cholesterol levels may slightly decrease the likelihood of heart disease.
+MaxHR:
+
+Shows a moderate negative correlation with HeartDisease (-0.40), indicating that higher maximum heart rates are associated with a lower likelihood of heart disease.
+Has a weak negative correlation with Age (-0.38), meaning that older individuals tend to have lower maximum heart rates.
+FastingBS:
+
+Shows a weak positive correlation with HeartDisease (0.27), suggesting that higher fasting blood sugar levels slightly increase the likelihood of heart disease.
+Has weak positive correlations with other variables like Age (0.20) and RestingBP (0.07).
+RestingBP:
+
+Shows a weak positive correlation with HeartDisease (0.11), indicating a minor increase in heart disease likelihood with higher resting blood pressure.
+Has weak positive correlations with Age (0.25) and Oldpeak (0.16).
+Age:
+
+Shows a weak positive correlation with HeartDisease (0.28), indicating that older age is associated with a higher likelihood of heart disease.
+Has weak to moderate positive correlations with other variables like RestingBP (0.25), Oldpeak (0.26), and FastingBS (0.20).
+Oldpeak:
+
+Shows the strongest positive correlation with HeartDisease (0.40) among the variables, suggesting that higher ST depression is strongly associated with a higher likelihood of heart disease.
+Has weak positive correlations with other variables like Age (0.26) and RestingBP (0.16).
+Summary:
+MaxHR and Oldpeak are the most significant predictors of heart disease in this dataset, with MaxHR showing a moderate negative correlation and Oldpeak showing a moderate positive correlation with heart disease.
+Age and FastingBS also show weak positive correlations with heart disease, indicating that older age and higher fasting blood sugar levels are associated with a slightly higher likelihood of heart disease.
+Cholesterol and RestingBP show weaker correlations with heart disease, suggesting they are less influential predictors in this dataset.
+These correlations provide insights into the relationships between different health indicators and heart disease, helping to identify key factors that may contribute to the risk of heart disease.
+
+### Correlation Analysis Summary: 
+### The correlation matrix highlights key relationships between variables related to heart disease. MaxHR and Oldpeak are the most significant predictors, with MaxHR negatively correlated (-0.40) and Oldpeak positively correlated (0.40) with heart disease. Age and FastingBS also show weak positive correlations (0.28 and 0.27, respectively) with heart disease, indicating older age and higher fasting blood sugar levels slightly increase heart disease likelihood. Cholesterol and RestingBP have weaker correlations with heart disease (-0.23 and 0.11, respectively), suggesting they are less influential predictors. These insights help identify crucial health indicators contributing to heart disease risk.
+***
+# {-}
+
+***
+# Regression Model {.tabset}
+
+```{r}
+# Multiple Linear Regression
+model_heart <- lm(HeartDisease ~ Age + Sex + RestingBP + Cholesterol + MaxHR + 
+            ExerciseAngina + Oldpeak + ST_Slope, data = heart_data)
+
+# Summary of the model
+summary(model_heart)
+```
+
+## Summary of Something NEW that we have not covered in class.
+- Regression model summary ouput and interpretation
+- Check for model assumptions
+- Interpretation of the model Coefficients
+
+
+## Check Model Assumptions {.tabset}
+
+```{r}
+
+
+# Check model assumptions (e.g., residuals plot)
+# Extract residuals
+residuals <- residuals(model_heart)
+
+# Create a data frame with the residuals
+residuals_df <- data.frame(residuals = residuals)
+
+a1 <-ggplot(residuals_df, aes(x = 1:length(residuals), y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals of the Model",
+       x = "Index",
+       y = "Residuals")
+
+a1
+
+
+# Normality: Q-Q plot of residuals
+a2 <- ggplot(model_heart, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Q-Q Plot", x = "Theoretical Quantiles", y = "Sample Quantiles")
+a2
+
+
+```
+
+### Summary of the Model Assumptions
+
+### The residuals plot shows that the residuals appear to be randomly scattered around the horizontal line at zero, suggesting that the assumption of homoscedasticity is likely met, though there are a few potential outliers that may need further investigation. The Q-Q plot indicates that the residuals are roughly normally distributed, as the points fall approximately along the diagonal line, with minor deviations at the tails suggesting only slight deviations from normality. However, the Breusch-Pagan test yields a very small p-value (9.335e-05), leading us to reject the null hypothesis of homoscedasticity, indicating evidence of heteroscedasticity in the residuals. Despite the residuals plot visually suggesting constant variance, the Breusch-Pagan test highlights potential issues with residual variance that warrant further examination.
+
+## Interpretation {.tabset}
+The model explains approximately 51.66% (Adjusted_R-squared) of the variability in HeartDisease.
+Significant predictors (with p-values < 0.05) include Age, SexM, Cholesterol, MaxHR, ExerciseAnginaY, Oldpeak, ST_SlopeFlat, and ST_SlopeUp.
+RestingBP is not a significant predictor in this model.
+The overall model is significant (p-value < 2.2e-16).
+These insights can help in understanding which factors are most strongly associated with heart disease according to the model.
+
+Residuals
+The residuals are the differences between the observed and predicted values of the dependent variable (HeartDisease). The summary statistics of the residuals give us an idea of the distribution:
+
+Min: -1.0947
+1Q (First Quartile): -0.1770
+Median: 0.0085
+3Q (Third Quartile): 0.1820
+Max: 1.0592
+The median residual is close to zero, suggesting that the model does not have a large systematic bias. The range (from -1.0947 to 1.0592) indicates how far the residuals typically deviate from zero.
+
+
+Coefficients
+The coefficients table shows the relationship between each predictor and the outcome variable, controlling for the other predictors.
+
+Intercept (0.4287953): The expected value of HeartDisease when all predictors are zero. However, this might not be meaningful if zero is not a realistic value for the predictors.
+
+Age (0.0032174, p = 0.01980): For each additional year of age, the expected increase in HeartDisease is 0.0032 units, holding other variables constant. This is statistically significant (p < 0.05), indicating age is a meaningful predictor.
+
+SexM (0.1855887, p = 3.68e-10): Being male increases the expected value of HeartDisease by 0.1856 units compared to females, holding other variables constant. This is highly significant (p < 0.001).
+
+RestingBP (0.0002044, p = 0.75329): Resting blood pressure does not have a statistically significant effect on HeartDisease in this model (p > 0.1).
+
+Cholesterol (-0.0006753, p = 1.75e-09): Each unit increase in cholesterol level decreases the likelihood of having  HeartDisease by 0.0006753 units, which is highly significant (p < 0.001). This negative relationship might need further investigation.
+
+MaxHR (-0.0013184, p = 0.01530): Each unit increase in maximum heart rate achieved decreases the expected value of HeartDisease by 0.0013184 units, and this is statistically significant (p < 0.05).
+
+ExerciseAnginaY (0.1916519, p = 1.92e-11): Presence of exercise-induced angina increases the expected value of HeartDisease by 0.1916519 units, highly significant (p < 0.001).
+
+Oldpeak (0.0592776, p = 7.34e-06): Each unit increase in ST depression induced by exercise relative to rest increases HeartDisease by 0.0592776 units, highly significant (p < 0.001).
+
+ST_SlopeFlat (0.1545264, p = 0.00146): Having a flat slope of the peak exercise ST segment increases HeartDisease by 0.1545264 units, significant (p < 0.01).
+ST_SlopeUp (-0.2651394, p = 9.46e-07): Having an upsloping ST segment decreases HeartDisease by 0.2651394 units, highly significant (p < 0.001).
+
+Summary of Regression Model Interpretation
+Model Explanation:
+
+The model explains approximately 51.66% of the variability in heart disease outcomes, as indicated by the Adjusted R-squared value.
+
+Significant Predictors:
+
+The following predictors are statistically significant (p-values < 0.05), indicating a meaningful relationship with heart disease:
+
+Age: Older age is associated with an increased likelihood of heart disease.
+
+Sex (Male): Males have a higher likelihood of heart disease compared to females.
+
+Cholesterol: Higher cholesterol levels are significantly associated with heart disease.
+
+MaxHR (Maximum Heart Rate Achieved): Lower maximum heart rate achieved is associated with an increased likelihood of heart disease.
+
+Exercise-Induced Angina (ExerciseAnginaY): Presence of exercise-induced angina is associated with a higher likelihood of heart disease.
+
+Oldpeak: Higher ST depression induced by exercise relative to rest is associated with heart disease.
+
+ST Slope (Flat and Up): Flat ST slope is associated with a higher likelihood, while upsloping ST segment is associated with a lower likelihood of heart disease.
+
+Non-Significant Predictor:
+
+Resting Blood Pressure (RestingBP): This predictor does not have a statistically significant effect on heart disease in this model.
+
+Overall Model Significance:
+
+The model as a whole is highly significant, with a p-value less than 2.2e-16, indicating that the predictors, when considered together, reliably predict heart disease.
+
+Conclusion:
+
+This model provides valuable insights into the factors most strongly associated with heart disease, which can be critical for understanding risk and informing preventative measures. The significant predictors highlight key areas for monitoring and intervention in clinical practice.
+
+
+## Perform the Breusch-Pagan test for homoscedasticity {.tabset}
+
+```{r}
+a3 <- bptest(model_heart)
+a3
+```
+
+### Interpretation of Regression Summary Output
+
+The regression model explains 51.66% of heart disease variability (Adjusted_R-squared = 0.5166), highlighting significant predictors: Age, SexM, Cholesterol, MaxHR, ExerciseAnginaY, Oldpeak, ST_SlopeFlat, and ST_SlopeUp. Age between 51 to 66 and being male increase heart disease risk, while higher cholesterol slightly decreases it. Lower MaxHR and presence of exercise-induced angina raise heart disease likelihood. Higher Oldpeak (ST depression) and a flat ST slope increase risk, while an upsloping ST segment decreases it. RestingBP is not significant. The model is highly reliable (p-value < 2.2e-16), aiding in effective heart disease risk assessment and management.
+***
+# {-}
+
+***
+# Conclusion {.tabset}
+## This model provides valuable insights into the factors most strongly associated with heart disease, which can be critical for understanding risk and informing preventative measures. The significant predictors highlight key areas for monitoring and intervention in clinical practice.
+
+***
+# Website
+
+<div style="text-align: center;">
+  <img src="https://www.american.edu/ucm/images/AU_logo_primary.png" alt="Centered Image" style="width:50%;">
+</div>
+
+<div style="text-align: center;">
+  <a href="https://www.kaggle.com/datasets/fedesoriano/heart-failure-prediction" target="_blank">Data URL </a>
+</div>
+
+***
+
+
+
+
+
+
+
+
+
+
+
