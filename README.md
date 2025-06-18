@@ -1,7 +1,9 @@
 # Regression-Project
 
 ## Analyzing Factors Influencing Heart Disease Severity using Multiple Linear Regression
+
 📌 Project Overview
+
 This project investigates the contributing factors to heart disease severity by applying Multiple Linear Regression (MLR) techniques to a clinical dataset. Developed as part of the graduate course DATA-612: Advanced Data Science Applications, this analysis aims to identify key health indicators that significantly predict heart disease severity. The broader objective is to support early detection and effective management of cardiovascular diseases through data-driven insights.
 
 
